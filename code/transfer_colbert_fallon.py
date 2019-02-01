@@ -14,7 +14,19 @@ pix2pixhd_dir = Path('../src/pix2pixHD/')
 import sys
 sys.path.append(str(pix2pixhd_dir))
 
+<<<<<<< HEAD
 from data.fallon_data_loader import CreateDataLoader
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+from data.fallon_data_loader import CreateDataLoader
+=======
+from data.canon_data_loader import CreateDataLoader
+>>>>>>> 4363d0e... Fixed transfer so it displays canonical images and colored labels
+=======
+from data.data_loader import CreateDataLoader
+>>>>>>> 52ff877... Normal transfer works fine
+>>>>>>> 41ac1e5... Normal transfer works fine
 from models.models import create_model
 import util.util as util
 from util.visualizer import Visualizer
