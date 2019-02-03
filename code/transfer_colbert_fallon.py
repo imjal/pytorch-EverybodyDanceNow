@@ -8,25 +8,14 @@ from collections import OrderedDict
 from torch.autograd import Variable
 from pathlib import Path
 from tqdm import tqdm
+import ntpath
 
 pix2pixhd_dir = Path('../src/pix2pixHD/')
 
 import sys
 sys.path.append(str(pix2pixhd_dir))
 
-<<<<<<< HEAD
-from data.fallon_data_loader import CreateDataLoader
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-from data.fallon_data_loader import CreateDataLoader
-=======
 from data.canon_data_loader import CreateDataLoader
->>>>>>> 4363d0e... Fixed transfer so it displays canonical images and colored labels
-=======
-from data.data_loader import CreateDataLoader
->>>>>>> 52ff877... Normal transfer works fine
->>>>>>> 41ac1e5... Normal transfer works fine
 from models.models import create_model
 import util.util as util
 from util.visualizer import Visualizer
@@ -41,7 +30,9 @@ opt.gpu_ids = [0]
 opt.batchSize = 1
 opt.checkpoints_dir = '../checkpoints'
 opt.results_dir = "../results"
-
+opt.label_nc = 0
+opt.input_nc = 4
+    
 iter_path = os.path.join(opt.checkpoints_dir, opt.name, 'iter.txt')
 
 data_loader = CreateDataLoader(opt)
@@ -53,15 +44,24 @@ webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.na
 
 model = create_model(opt)
 
-print(len(dataset))
 
 for data in tqdm(dataset):
-    minibatch = 1
+	concat_list = data['label']
+	canon_img = data['canon']
 
-    generated = model.inference(data['label'], data['inst'])
-    visuals = OrderedDict([('input_label', util.tensor2label(data['label'][0], opt.label_nc)),
-                           ('synthesized_image', util.tensor2im(generated.data[0]))])
-    img_path = data['path']
-    visualizer.save_images(webpage, visuals, img_path)
+	for i in range(len(concat_list)):
+		generated = model.inference(concat_list[i], data['inst'])
+		img = canon_img[i]
+		label = torch.narrow(concat_list[i][0], 0, 0, 1)
+		visuals = OrderedDict([('input_label', util.tensor2label(label, 18)),
+			('canonical_image', util.tensor2im(img[0])), ('synthesized_image', util.tensor2im(generated.data[0]))])
+		base = ntpath.basename(data['path'][0])
+		name = os.path.splitext(base)
+		img_path = ["canon" + str(i) + "_" + name[0] + ".png"]
+		visualizer.save_images(webpage, visuals, img_path)
 webpage.save()
 torch.cuda.empty_cache()
+
+
+
+
