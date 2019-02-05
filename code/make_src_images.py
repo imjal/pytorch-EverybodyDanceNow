@@ -66,6 +66,8 @@ for idx in tqdm(range(1, 5404)):
                      .transpose(1, 2, 0)
     heatmap[:, :, :-1] = r_heatmap
     param = {'thre1': 0.1, 'thre2': 0.05, 'thre3': 0.5}
+    print(heatmap.shape[:2])
+    exit()
     label = get_pose(param, heatmap, paf)
 
     cv2.imwrite(str(train_img_dir.joinpath(f'img_{idx:06d}.png')), img)
