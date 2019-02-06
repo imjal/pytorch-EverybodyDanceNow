@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from collections import OrderedDict
 from torch.autograd import Variable
 from pathlib import Path
+import resnet_canon
+
 
 pix2pixhd_dir = Path('../src/pix2pixHD/')
 
@@ -15,7 +17,7 @@ sys.path.append(str(pix2pixhd_dir))
 
 
 from options.train_options import TrainOptions
-from data.data_loader import CreateDataLoader
+from data.concat_loader import CreateDataLoader
 from models.models import create_model
 import util.util as util
 from util.visualizer import Visualizer
@@ -24,10 +26,16 @@ with open('../data/train_opt.pkl', mode='rb') as f:
     opt = pickle.load(f)
 
 # changing name of the dataset path
-opt.dataroot = '/data/jl5/train_easy/'
+opt.dataroot = '/data/jl5/train_numbered/'
 opt.verbose = True
 opt.gpu_ids = [0,1,2,3]
 opt.batchSize = 4
+opt.input_nc = 3
+opt.label_nc = 18
+opt.re_size = 224
+opt.resnet_size = 28
+opt.resize_or_crop = 'resize'
+opt.loadSize = 224
 iter_path = os.path.join(opt.checkpoints_dir, opt.name, 'iter.txt')
 
 # created data loader from pix2pixHD custom loader
@@ -35,7 +43,7 @@ data_loader = CreateDataLoader(opt)
 dataset = data_loader.load_data()
 dataset_size = len(data_loader)
 print('#training images = %d' % dataset_size)
- 
+
 # epoch information - need to figure out the numbers
 start_epoch, epoch_iter = 1, 0
 total_steps = (start_epoch-1) * dataset_size + epoch_iter
@@ -44,9 +52,15 @@ print_delta = total_steps % opt.print_freq
 save_delta = total_steps % opt.save_latest_freq
 
 model = create_model(opt)
+model50 = resnet_canon.resnet50(True)
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+if torch.cuda.device_count() > 1:
+  model50 = torch.nn.DataParallel(model50)
+model50.to(device)
+
 visualizer = Visualizer(opt)
 
-for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
+for epoch in range(start_epoch, 20):
     epoch_start_time = time.time()
     if epoch != start_epoch:
         epoch_iter = epoch_iter % dataset_size
@@ -57,11 +71,13 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
 
         # whether to collect output images
         save_fake = total_steps % opt.display_freq == display_delta
-        
+
         ############## Forward Pass ######################
-        losses, generated = model(Variable(data['label']), Variable(data['inst']), 
-            Variable(data['image']), Variable(data['feat']), infer=save_fake)
-        
+        canon = model50.forward(data['canon'])
+        losses, generated = model(Variable(data['label']), Variable(data['inst']),
+            Variable(data['image']), Variable(data['feat']),
+            resnet_out = Variable(canon), infer=save_fake)
+
         # sum per device losses
         losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
         loss_dict = dict(zip(model.module.loss_names, losses))
@@ -69,7 +85,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         # calculate final loss scalar
         loss_D = (loss_dict['D_fake'] + loss_dict['D_real']) * 0.5
         loss_G = loss_dict['G_GAN'] + loss_dict.get('G_GAN_Feat',0) + loss_dict.get('G_VGG',0)
-        
+
         ############### Backward Pass ####################
         # update generator weights
         model.module.optimizer_G.zero_grad()
@@ -80,8 +96,8 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         model.module.optimizer_D.zero_grad()
         loss_D.backward()
         model.module.optimizer_D.step()
-        
-        #call(["nvidia-smi", "--format=csv", "--query-gpu=memory.used,memory.free"]) 
+
+        #call(["nvidia-smi", "--format=csv", "--query-gpu=memory.used,memory.free"])
 
         ############## Display results and errors ##########
         ### print out errors
@@ -94,6 +110,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         ### display output images
         if save_fake:
             visuals = OrderedDict([('input_label', util.tensor2label(data['label'][0], opt.label_nc)),
+                                   ('canonical_image', util.tensor2im(data['canon'][0])),
                                    ('synthesized_image', util.tensor2im(generated.data[0])),
                                    ('real_image', util.tensor2im(data['image'][0]))])
             visualizer.display_current_results(visuals, epoch, total_steps)
@@ -101,20 +118,20 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         ### save latest model
         if total_steps % opt.save_latest_freq == save_delta:
             print('saving the latest model (epoch %d, total_steps %d)' % (epoch, total_steps))
-            model.module.save('latest')            
+            model.module.save('latest')
             np.savetxt(iter_path, (epoch, epoch_iter), delimiter=',', fmt='%d')
 
         if epoch_iter >= dataset_size:
             break
-       
-    # end of epoch 
+
+    # end of epoch
     iter_end_time = time.time()
     print('End of epoch %d / %d \t Time Taken: %d sec' %
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
 
     ### save model for this epoch
     if epoch % opt.save_epoch_freq == 0:
-        print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))        
+        print('saving the model at the end of epoch %d, iters %d' % (epoch, total_steps))
         model.module.save('latest')
         model.module.save(epoch)
         np.savetxt(iter_path, (epoch+1, 0), delimiter=',', fmt='%d')
@@ -126,5 +143,5 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
     ### linearly decay learning rate after certain iterations
     if epoch > opt.niter:
         model.module.update_learning_rate()
-        
+
 torch.cuda.empty_cache()
