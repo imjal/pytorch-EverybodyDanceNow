@@ -61,3 +61,32 @@ def get_pose(param, heatmaps, pafs):
     label = create_label(shape, joint_list, person_to_joint_assoc)
 
     return label
+
+  def get_pose_keypoints(param, heatmaps, pafs):
+    shape = heatmaps.shape[:2]
+    # Bottom-up approach:
+    # Step 1: find all joints in the image (organized by joint type: [0]=nose,
+    # [1]=neck...)
+    joint_list_per_joint_type = NMS(param, heatmaps)
+    # joint_list is an unravel'd version of joint_list_per_joint, where we add
+    # a 5th column to indicate the joint_type (0=nose, 1=neck...)
+    joint_list = np.array([tuple(peak) + (joint_type,) for joint_type,
+                           joint_peaks in enumerate(joint_list_per_joint_type) for peak in joint_peaks])
+
+    # Step 2: find which joints go together to form limbs (which wrists go
+    # with which elbows)
+    paf_upsamp = cv2.resize(pafs, shape, interpolation=cv2.INTER_CUBIC)
+    connected_limbs = find_connected_joints(param, paf_upsamp, joint_list_per_joint_type)
+
+    # Step 3: associate limbs that belong to the same person
+    person_to_joint_assoc = group_limbs_of_same_person(connected_limbs, joint_list)
+    ret = np.zeros((14, 2, 1))
+    for person in person_to_joint_assoc:
+        for i in range(14):
+            if person[i] == -1:
+                continue
+            ret[i][0] = joint_list[i][0]
+            ret[i][1] = joint_list[i][1]
+
+    return ret
+
