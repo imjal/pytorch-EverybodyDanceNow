@@ -6,6 +6,7 @@ from scipy import ndimage
 
 # openpose
 import sys
+import pdb
 sys.path.append('../pytorch_Realtime_Multi-Person_Pose_Estimation')
 
 from network.post import *
@@ -56,13 +57,14 @@ def get_pose(param, heatmaps, pafs):
 
     # Step 3: associate limbs that belong to the same person
     person_to_joint_assoc = group_limbs_of_same_person(connected_limbs, joint_list)
-
+    pdb.set_trace()
     # (Step 4): plot results
     label = create_label(shape, joint_list, person_to_joint_assoc)
 
     return label
 
-  def get_pose_keypoints(param, heatmaps, pafs):
+
+def get_pose_keypoints(param, heatmaps, pafs):
     shape = heatmaps.shape[:2]
     # Bottom-up approach:
     # Step 1: find all joints in the image (organized by joint type: [0]=nose,
@@ -81,12 +83,32 @@ def get_pose(param, heatmaps, pafs):
     # Step 3: associate limbs that belong to the same person
     person_to_joint_assoc = group_limbs_of_same_person(connected_limbs, joint_list)
     ret = np.zeros((14, 2, 1))
+    ret.fill(-1)
     for person in person_to_joint_assoc:
         for i in range(14):
             if person[i] == -1:
                 continue
-            ret[i][0] = joint_list[i][0]
-            ret[i][1] = joint_list[i][1]
+            try:
+              ret[i][0] = joint_list[i][0]
+            except IndexError:
+              ret[i][0] = -1
+            try:
+              ret[i][1] = joint_list[i][1]
+            except IndexError:
+              ret[i][1] = -1
 
     return ret
+
+
+
+
+
+
+
+
+
+
+
+
+
 

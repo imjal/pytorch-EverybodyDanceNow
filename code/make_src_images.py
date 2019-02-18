@@ -100,20 +100,23 @@ for j in range(11):
         if (keypoints == -1).all():
             continue;
 
-        #if keypoints_arr.size == 0:
-        keypoints_arr = keypoints
-        #else:
-            #keypoints_arr = np.append(keypoints_arr, keypoints, axis = 2)
+        if keypoints_arr is None:
+          keypoints_arr = keypoints
+        else:
+          keypoints_arr = np.append(keypoints_arr, keypoints, axis = 2)
         current_box = [min(keypoints[:, 0]), min(keypoints[:, 1]), max(keypoints[:, 0])-min(keypoints[:, 0]), max(keypoints[:, 1])-min(keypoints[:, 1])]
-        boxes = np.vstack((boxes, current_box))
+        if boxes is None:
+          boxes = current_box
+        else:
+          boxes = np.vstack((boxes, current_box))
 
         #show_box_and_keypoints(img, current_box, keypoints)
         new_dir = video_dir.joinpath(str(j))
         cv2.imwrite(str(new_dir.joinpath(f'{i:06d}.png')), img)
         i+=1
-    with open("keypoints_vid" + str(j), 'wb') as pickle_file:
+    with open("keypoints_vid" + str(j) + ".pkl", 'wb') as pickle_file:
         pickle.dump(keypoints_arr, pickle_file)
-    with open("boxes_vid" + str(j), 'wb') as pickle_file:
+    with open("boxes_vid" + str(j) + ".pkl", 'wb') as pickle_file:
         pickle.dump(boxes, pickle_file)
     k = ranges[j]
 torch.cuda.empty_cache()
