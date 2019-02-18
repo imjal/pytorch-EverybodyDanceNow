@@ -63,8 +63,12 @@ def get_pose(param, heatmaps, pafs):
 
     return label
 
+<<<<<<< HEAD
 
 def get_pose_keypoints(param, heatmaps, pafs):
+=======
+  def get_pose_keypoints(param, heatmaps, pafs):
+>>>>>>> 0746a8fc96d119f2f545656bd2b789994fd8af40
     shape = heatmaps.shape[:2]
     # Bottom-up approach:
     # Step 1: find all joints in the image (organized by joint type: [0]=nose,
@@ -83,11 +87,15 @@ def get_pose_keypoints(param, heatmaps, pafs):
     # Step 3: associate limbs that belong to the same person
     person_to_joint_assoc = group_limbs_of_same_person(connected_limbs, joint_list)
     ret = np.zeros((14, 2, 1))
+<<<<<<< HEAD
     ret.fill(-1)
+=======
+>>>>>>> 0746a8fc96d119f2f545656bd2b789994fd8af40
     for person in person_to_joint_assoc:
         for i in range(14):
             if person[i] == -1:
                 continue
+<<<<<<< HEAD
             try:
               ret[i][0] = joint_list[i][0]
             except IndexError:
@@ -112,3 +120,10 @@ def get_pose_keypoints(param, heatmaps, pafs):
 
 
 
+=======
+            ret[i][0] = joint_list[i][0]
+            ret[i][1] = joint_list[i][1]
+
+    return ret
+
+>>>>>>> 0746a8fc96d119f2f545656bd2b789994fd8af40
